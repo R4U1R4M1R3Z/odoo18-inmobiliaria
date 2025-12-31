@@ -1,0 +1,322 @@
+services:
+  # ============================================
+  #  ODOO - Aplicación principal
+  # ============================================
+  web:
+    image: odoo:${ODOO_VERSION:-18.0}
+    container_name: ${ODOO_CONTAINER_NAME:-odoo18_dev}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${ODOO_PORT:-8069}:8069"
+      - "${ODOO_LONGPOLLING_PORT:-8072}:8072"
+    volumes:
+      - ./addons:/mnt/extra-addons:rw
+      - ./config:/etc/odoo:ro
+      - odoo-data:/var/lib/odoo
+      - ./data/logs:/var/log/odoo
+    environment:
+      - HOST=db
+      - USER=${POSTGRES_USER:-odoo}
+      - PASSWORD=${POSTGRES_PASSWORD:-odoo}
+      # Redis para sesiones
+      - ODOO_SESSION_REDIS=true
+      - ODOO_SESSION_REDIS_HOST=redis
+      - ODOO_SESSION_REDIS_PORT=6379
+      # SMTP para desarrollo (Mailpit)
+      - SMTP_SERVER=mailpit
+      - SMTP_PORT=1025
+    command: --dev=${ODOO_DEV_MODE:-all}
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069/web/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      # Traefik configuración
+      - "traefik.enable=true"
+      - "traefik.http.routers.odoo.rule=Host(`${ODOO_DOMAIN:-odoo.localhost}`)"
+      - "traefik.http.routers.odoo.entrypoints=websecure"
+      - "traefik.http.routers.odoo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.odoo.loadbalancer.server.port=8069"
+      # Longpolling
+      - "traefik.http.routers.odoo-longpolling.rule=Host(`${ODOO_DOMAIN:-odoo.localhost}`) && PathPrefix(`/longpolling`)"
+      - "traefik.http.routers.odoo-longpolling.entrypoints=websecure"
+      - "traefik.http.routers.odoo-longpolling.tls.certresolver=letsencrypt"
+      - "traefik.http.services.odoo-longpolling.loadbalancer.server.port=8072"
+    deploy:
+      resources:
+        limits:
+          cpus: "${ODOO_CPU_LIMIT:-2.0}"
+          memory: ${ODOO_MEMORY_LIMIT:-2G}
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-50m}"
+        max-file: "${LOG_MAX_FILES:-5}"
+
+  # ============================================
+  #  POSTGRESQL - Base de datos
+  # ============================================
+  db:
+    image: postgres:${POSTGRES_VERSION:-16}
+    container_name: ${DB_CONTAINER_NAME:-odoo18_db}
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-odoo}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-odoo}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - db-data:/var/lib/postgresql/data/pgdata
+      - ./scripts/init-db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo} -d ${POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "${DB_CPU_LIMIT:-1.0}"
+          memory: ${DB_MEMORY_LIMIT:-1G}
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "${LOG_MAX_SIZE:-50m}"
+        max-file: "${LOG_MAX_FILES:-3}"
+
+  # ============================================
+  #  REDIS - Caché y sesiones
+  # ============================================
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: ${REDIS_CONTAINER_NAME:-odoo18_redis}
+    command: redis-server --appendonly yes --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: ${REDIS_MEMORY_LIMIT:-512M}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  # ============================================
+  #  MAILPIT - Servidor SMTP desarrollo
+  # ============================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ${MAILPIT_CONTAINER_NAME:-odoo18_mailpit}
+    profiles:
+      - dev
+      - tools
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    environment:
+      - MP_MAX_MESSAGES=${MAILPIT_MAX_MESSAGES:-500}
+      - MP_DATABASE=/data/mailpit.db
+      - TZ=${TIMEZONE:-Europe/Madrid}
+    volumes:
+      - mailpit-data:/data
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailpit.rule=Host(`${MAILPIT_DOMAIN:-mail.localhost}`)"
+      - "traefik.http.routers.mailpit.entrypoints=websecure"
+      - "traefik.http.routers.mailpit.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mailpit.loadbalancer.server.port=8025"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================
+  #  PGADMIN - Administrador BD
+  # ============================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ${PGADMIN_CONTAINER_NAME:-odoo18_pgadmin}
+    profiles:
+      - tools
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@admin.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`${PGADMIN_DOMAIN:-pgadmin.localhost}`)"
+      - "traefik.http.routers.pgadmin.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  # ============================================
+  #  TRAEFIK - Reverse Proxy + SSL
+  # ============================================
+  traefik:
+    image: traefik:${TRAEFIK_VERSION:-v3.2}
+    container_name: ${TRAEFIK_CONTAINER_NAME:-odoo18_traefik}
+    profiles:
+      - prod
+      - proxy
+    command:
+      # API y Dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=${TRAEFIK_INSECURE:-false}"
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=${COMPOSE_PROJECT_NAME:-odoo18}_network"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      # Let's Encrypt
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # Logs
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/logs/access.log"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+      - ./data/traefik-logs:/logs
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN:-traefik.localhost}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      # Autenticación básica para dashboard
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_BASIC_AUTH:-}"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ============================================
+  #  REDIS COMMANDER - UI para Redis
+  # ============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ${REDIS_COMMANDER_CONTAINER_NAME:-odoo18_redis_ui}
+    profiles:
+      - tools
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    restart: unless-stopped
+    networks:
+      - odoo-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+networks:
+  odoo-network:
+    driver: bridge
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_network
+
+volumes:
+  odoo-data:
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_odoo-data
+  db-data:
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_db-data
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_redis-data
+  pgadmin-data:
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_pgadmin-data
+  mailpit-data:
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_mailpit-data
+  traefik-certs:
+    name: ${COMPOSE_PROJECT_NAME:-odoo18}_traefik-certs
