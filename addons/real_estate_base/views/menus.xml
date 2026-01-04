@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menú Principal -->
+    <menuitem id="menu_real_estate_root"
+              name="Inmobiliaria"
+              sequence="10"
+              web_icon="real_estate_base,static/description/icon.png"/>
+
+    <!-- Menú Propiedades -->
+    <menuitem id="menu_real_estate_properties"
+              name="Propiedades"
+              parent="menu_real_estate_root"
+              sequence="10"/>
+
+    <menuitem id="menu_property"
+              name="Todas las Propiedades"
+              parent="menu_real_estate_properties"
+              action="action_property"
+              sequence="10"/>
+
+    <menuitem id="menu_property_available"
+              name="Disponibles"
+              parent="menu_real_estate_properties"
+              action="action_property"
+              sequence="20"/>
+
+    <!-- Menú Configuración -->
+    <menuitem id="menu_real_estate_config"
+              name="Configuración"
+              parent="menu_real_estate_root"
+              sequence="100"
+              groups="group_real_estate_manager"/>
+
+    <menuitem id="menu_property_type"
+              name="Tipos de Propiedad"
+              parent="menu_real_estate_config"
+              action="action_property_type"
+              sequence="10"/>
+</odoo>

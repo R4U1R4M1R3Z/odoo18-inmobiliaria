@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Propiedad de ejemplo 1 -->
+        <record id="property_demo_1" model="real.estate.property">
+            <field name="name">Piso céntrico con terraza</field>
+            <field name="property_type_id" ref="property_type_apartment"/>
+            <field name="street">Calle Mayor, 15</field>
+            <field name="city">Valencia</field>
+            <field name="zip">46001</field>
+            <field name="surface">85</field>
+            <field name="rooms">3</field>
+            <field name="bathrooms">2</field>
+            <field name="floor">4</field>
+            <field name="elevator">1</field>
+            <field name="terrace">1</field>
+            <field name="operation_type">sale</field>
+            <field name="sale_price">250000</field>
+            <field name="state">available</field>
+        </record>
+
+        <!-- Propiedad de ejemplo 2 -->
+        <record id="property_demo_2" model="real.estate.property">
+            <field name="name">Casa adosada con jardín</field>
+            <field name="property_type_id" ref="property_type_house"/>
+            <field name="street">Urbanización Los Pinos</field>
+            <field name="city">Paterna</field>
+            <field name="zip">46980</field>
+            <field name="surface">150</field>
+            <field name="surface_plot">200</field>
+            <field name="rooms">4</field>
+            <field name="bathrooms">3</field>
+            <field name="garage">1</field>
+            <field name="garage_spaces">2</field>
+            <field name="garden">1</field>
+            <field name="operation_type">sale</field>
+            <field name="sale_price">350000</field>
+            <field name="state">available</field>
+        </record>
+
+        <!-- Propiedad de ejemplo 3 - Alquiler -->
+        <record id="property_demo_3" model="real.estate.property">
+            <field name="name">Apartamento amueblado centro</field>
+            <field name="property_type_id" ref="property_type_apartment"/>
+            <field name="street">Calle Colón, 8</field>
+            <field name="city">Valencia</field>
+            <field name="zip">46004</field>
+            <field name="surface">65</field>
+            <field name="rooms">2</field>
+            <field name="bathrooms">1</field>
+            <field name="floor">2</field>
+            <field name="elevator">1</field>
+            <field name="furnished">1</field>
+            <field name="ac">1</field>
+            <field name="operation_type">rent</field>
+            <field name="rent_price">850</field>
+            <field name="state">available</field>
+        </record>
+    </data>
+</odoo>

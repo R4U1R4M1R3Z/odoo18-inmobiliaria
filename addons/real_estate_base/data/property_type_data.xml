@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Secuencia: NO debe actualizarse después de la instalación -->
+    <data noupdate="1">
+        <record id="seq_real_estate_property" model="ir.sequence">
+            <field name="name">Propiedad Inmobiliaria</field>
+            <field name="code">real.estate.property</field>
+            <field name="prefix">PROP</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+
+    <!-- Tipos de propiedad: SÍ deben actualizarse al instalar/actualizar -->
+    <data noupdate="0">
+        <record id="property_type_apartment" model="real.estate.property.type">
+            <field name="name">Piso</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="property_type_house" model="real.estate.property.type">
+            <field name="name">Casa</field>
+            <field name="sequence">20</field>
+        </record>
+
+        <record id="property_type_duplex" model="real.estate.property.type">
+            <field name="name">Dúplex</field>
+            <field name="sequence">30</field>
+        </record>
+
+        <record id="property_type_penthouse" model="real.estate.property.type">
+            <field name="name">Ático</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="property_type_office" model="real.estate.property.type">
+            <field name="name">Oficina</field>
+            <field name="sequence">50</field>
+        </record>
+
+        <record id="property_type_commercial" model="real.estate.property.type">
+            <field name="name">Local Comercial</field>
+            <field name="sequence">60</field>
+        </record>
+
+        <record id="property_type_land" model="real.estate.property.type">
+            <field name="name">Terreno</field>
+            <field name="sequence">70</field>
+        </record>
+
+        <record id="property_type_garage" model="real.estate.property.type">
+            <field name="name">Garaje</field>
+            <field name="sequence">80</field>
+        </record>
+    </data>
+
+</odoo>
